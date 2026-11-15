@@ -2,9 +2,13 @@ from textual.reactive import reactive
 from textual.widgets import Static
 
 
+def _empty_alerts() -> list[dict]:
+    return []
+
+
 class AlertBanner(Static):
     BINDINGS = []
-    alerts = reactive(list)
+    alerts = reactive[list[dict]](_empty_alerts)
 
     def watch_alerts(self, alerts: list):
         if not alerts:

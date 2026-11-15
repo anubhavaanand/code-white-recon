@@ -39,18 +39,26 @@ def sanitize_query(query: str) -> str:
     return query
 
 def _check_circuit_breakers(sources: list[str]) -> bool:
-    """Returns True if all requested sources have open circuits."""
+    """Returns True only if every *requested* source has an open circuit.
+
+    Sources with no recorded metadata are not treated as failed: an absent row
+    means "never called", not "circuit open". The previous implementation used
+    ``all(... )`` over an empty selection, so a database that only knew about
+    unrelated sources would wrongly force Safe Mode.
+    """
     try:
         db = CacheDatabase()
         rows = db.get_all_source_health()
         if not isinstance(rows, list):
             return False
-        all_open = all(
-            row.get("circuit_open", False)
-            for row in rows
-            if row.get("source_name") in sources
-        )
-        return bool(rows) and all_open
+        requested = {s.strip().lower() for s in sources}
+        matching = [
+            row for row in rows
+            if str(row.get("source_name", "")).lower() in requested
+        ]
+        if not matching:
+            return False
+        return all(bool(row.get("circuit_open", False)) for row in matching)
     except Exception:
         return False
 
@@ -215,27 +223,27 @@ async def semantic_search(query: str, top_k: int = 20) -> list[PatentRecord]:
             scored.append((pid, sim))
 
     scored.sort(key=lambda x: x[1], reverse=True)
-    top_pids = {pid for pid, _ in scored[:top_k]}
+    # Keep the ranked order: a set would lose similarity ranking and make the
+    # final record order depend on set iteration order.
+    top_pids = [pid for pid, _ in scored[:top_k]]
 
     with db.get_connection() as conn:
         rows = conn.execute(
-            "SELECT patent_json FROM collections WHERE patent_id IN ({}) ORDER BY saved_at DESC".format(
+            "SELECT patent_id, patent_json FROM collections WHERE patent_id IN ({})".format(
                 ",".join("?" for _ in top_pids)
             ),
-            list(top_pids),
+            top_pids,
         ).fetchall()
 
     from core.models import CrossReference
-    records = []
+    by_id = {}
     for row in rows:
         data = json.loads(row["patent_json"])
         if "cross_references" in data:
             data["cross_references"] = [CrossReference(**cr) for cr in data["cross_references"]]
-        records.append(PatentRecord(**data))
+        by_id[row["patent_id"]] = PatentRecord(**data)
 
-    pid_order = {pid: i for i, pid in enumerate(top_pids)}
-    records.sort(key=lambda r: pid_order.get(r.id or "", 999))
-    return records
+    return [by_id[pid] for pid in top_pids if pid in by_id]
 
 
 def _get_stale_cache(db: CacheDatabase, query: str) -> Optional[List[PatentRecord]]:

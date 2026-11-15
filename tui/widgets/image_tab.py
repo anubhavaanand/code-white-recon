@@ -15,7 +15,6 @@ from core.models import PatentRecord
 
 
 class TerminalProtocol(Enum):
-    BINDINGS = []
     KITTY   = "Kitty"
     ITERM2  = "iTerm2"
     SIXEL   = "Sixel"
@@ -50,13 +49,26 @@ _ALLOWED_DOMAINS = [
 
 
 def is_safe_url(url: str) -> bool:
-    """Validate URL is an https link from a trusted patent image source."""
+    """Validate URL is an https link from a trusted patent image source.
+
+    The host must be the trusted domain itself or a subdomain of it. A plain
+    substring check (``domain in netloc``) would accept look-alike hosts such
+    as ``uspto.gov.evil.com`` or ``patentimages.storage.googleapis.com.evil.com``,
+    so we compare the parsed hostname on a dot boundary instead.
+    """
     if not url:
         return False
     parsed = urlparse(url)
     if parsed.scheme != "https":
         return False
-    return any(domain in parsed.netloc for domain in _ALLOWED_DOMAINS)
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    for domain in _ALLOWED_DOMAINS:
+        domain = domain.lower()
+        if host == domain or host.endswith("." + domain):
+            return True
+    return False
 
 
 # ── Kitty graphics protocol (FR-014 / G-004 inline images) ────────────
@@ -80,7 +92,7 @@ def render_kitty_png(png_bytes: bytes, cols: int, rows: int) -> str | None:
         cw, ch = _kitty_cell_size()
         target_w = max(1, cols * cw)
         target_h = max(1, rows * ch)
-        img.thumbnail((target_w, target_h), Image.LANCZOS)
+        img.thumbnail((target_w, target_h), Image.Resampling.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         data = buf.getvalue()

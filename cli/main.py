@@ -87,6 +87,7 @@ def search(
 
         results = all_results
     else:
+        assert query is not None  # narrowed: the empty (None, None) case returned above
         query = query.strip()
         if not query:
             console.print("[red]ERR: Empty search query. Provide a non-empty query string.[/red]")
@@ -108,7 +109,17 @@ def search(
         import json as jsonlib
         fmt = format.lower()
         if fmt == "json":
-            out = jsonlib.dumps([r.__dict__ if hasattr(r, "__dict__") else str(r) for r in results], indent=2)
+            import dataclasses
+
+            out = jsonlib.dumps(
+                [
+                    dataclasses.asdict(r)  # type: ignore[arg-type]
+                    if dataclasses.is_dataclass(r)
+                    else str(r)
+                    for r in results
+                ],
+                indent=2,
+            )
             console.print(out)
         elif fmt == "csv":
             import csv
@@ -151,10 +162,17 @@ def search(
     console.print(f"\n[green]✓ Displayed {min(50, len(results))} of {len(results)} results[/green]")
 
     db = CacheDatabase()
-    db.save_search_results(query if file is None else file, results)
-    for record in results:
-        db.save_to_collection(record)
-    console.print(f"[blue]ℹ {len(results)} results cached and added to collection. Use 'recon export --format json' to export.[/blue]")
+    cache_query = query if file is None else file
+    assert cache_query is not None
+    db.save_search_results(cache_query, results)
+    # `search` only caches; use `recon run` (or press `s` in the TUI) to add
+    # records to the saved collection. Auto-saving every search result polluted
+    # the collection and any subsequent export.
+    console.print(
+        f"[blue]ℹ {len(results)} results cached. "
+        f"Use 'recon run \"{query or file}\"' to add them to the collection, "
+        f"or 'recon export --format json' to export.[/blue]"
+    )
 
 
 @app.command()

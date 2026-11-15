@@ -585,6 +585,29 @@ class CacheDatabase:
                     (session_id,),
                 )
 
+    # ── translation_cache ────────────────────────────────────────────────────
+
+    def get_cached_translation(self, text: str) -> Optional[str]:
+        """Return a cached translation for ``text``, or None."""
+        key = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+        with contextlib.closing(self.get_connection()) as conn:
+            row = conn.execute(
+                "SELECT translated_text FROM translation_cache WHERE source_hash = ?",
+                (key,),
+            ).fetchone()
+        return row["translated_text"] if row else None
+
+    def save_translation_cache(self, text: str, translated: str) -> None:
+        """Persist a translation in the shared cache database."""
+        key = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+        with contextlib.closing(self.get_connection()) as conn:
+            with conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO translation_cache (source_hash, source_text, translated_text) "
+                    "VALUES (?, ?, ?)",
+                    (key, text[:500], translated),
+                )
+
     # ── enrichment_cache (legacy) ────────────────────────────────────────────
 
     def get_enrichment_cache(self, patent_id: str) -> Optional[list[CrossReference]]:

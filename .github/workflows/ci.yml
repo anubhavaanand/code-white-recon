@@ -6,33 +6,56 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   lint:
+    name: Lint (ruff)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: |
-          uv venv
-          uv pip install -e ".[dev]"
+        run: uv sync --locked --extra dev
 
-      - name: Ruff
+      - name: Ruff lint
         run: uv run ruff check .
 
+  typecheck:
+    name: Type check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Mypy
+        run: uv run mypy cli core clients storage tui
+
   test:
+    name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
 
@@ -40,20 +63,56 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      # lxml has no wheel for every CPython minor; these headers let it build
+      # from source when uv must fall back to the sdist.
+      - name: Install native build dependencies
         run: |
-          uv venv
-          uv pip install -e ".[test]"
+          sudo apt-get update
+          sudo apt-get install -y libxml2-dev libxslt1-dev
 
-      - name: Run tests
+      - name: Install dependencies
+        run: uv sync --locked --extra test
+
+      - name: Run tests with coverage
         run: |
-          uv run pytest tests/ -v --tb=short
+          uv run pytest tests/ -q \
+            --cov=core --cov=cli --cov=clients --cov=storage --cov=tui \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: error
+
+  build:
+    name: Build & package check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Check package metadata
+        run: uvx twine check dist/*
+
+      - name: Verify built wheel imports
+        run: |
+          uv venv --python 3.12 .venv-wheel
+          uv pip install --python .venv-wheel dist/*.whl
+          .venv-wheel/bin/python -c "import cli.main, core.search, tui.app, storage.cache; print('import ok')"

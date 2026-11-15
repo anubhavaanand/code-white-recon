@@ -44,7 +44,9 @@ class ClaimsTab(Static):
             )
 
             pid = (record.id or "").upper()
-            scraper = None
+            from clients.base_scraper import BaseScraper
+
+            scraper: BaseScraper | None = None
             if pid.startswith("EP"):
                 scraper = EPOScraper()
             elif pid[:2] in ("US", "WO", "CN", "JP", "KR", "DE", "GB", "FR"):
