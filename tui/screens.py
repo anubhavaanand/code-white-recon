@@ -961,7 +961,15 @@ class SearchScreen(Screen):
         import asyncio
         await asyncio.sleep(0.01) # Yield to event loop to guarantee the "Searching..." text renders
         try:
+            cache_hit = CacheDatabase().is_cache_valid(query)
             self._results = await search_all(query, sources=sources)
+            CacheDatabase().add_search_history(
+                query,
+                result_count=len(self._results),
+                sources=sources,
+                cache_hit=cache_hit,
+                tui_mode=True,
+            )
         except Exception:
             self._stop_search_spinner()
             self.query_one("#status_top", Static).update(

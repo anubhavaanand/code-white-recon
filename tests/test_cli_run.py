@@ -16,9 +16,17 @@ async def fake_search_all(query, sources=None):
 class DummyDB:
     def __init__(self):
         self.saved = []
+        self.history = []
+
+    def is_cache_valid(self, query):
+        return False
 
     def save_search_results(self, query, results):
         self.saved.append((query, results))
+
+    def add_search_history(self, query, **kwargs):
+        self.history.append((query, kwargs))
+        return 1
 
     def save_to_collection(self, record):
         # pretend to save

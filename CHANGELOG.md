@@ -41,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `recon search` no longer auto-adds every result to the saved collection; use `recon run` or press `s` in the TUI. `--format json` now serializes nested dataclasses instead of crashing.
 - `semantic_search` preserves similarity ranking — results were ordered by set iteration order instead of cosine score.
 - Translation cache now writes to the shared RECON cache database; it previously opened a bare `recon_cache.db` in the CWD where the table never existed, so translations were never cached.
+- Wired previously-dead cache features: CLI/TUI searches now append to `search_history` (so `↑` history cycling and autocomplete work), exports append to `export_log`, and non-empty citation graphs are cached in `citations` and reused.
+- `save_to_collection` deduplicates on `(patent_id, collection_name)` — re-saving a patent refreshes it instead of creating duplicate rows.
 
 ### Security
 - Hardened `is_safe_url` to compare the parsed hostname on a dot boundary. The old substring check (`domain in netloc`) accepted look-alike hosts such as `uspto.gov.evil.com` and `patentimages.storage.googleapis.com.evil.com`.
@@ -48,7 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - CI now runs ruff, mypy, a Python 3.12–3.14 test matrix with coverage, and a build/twine/import check; `uv sync --locked` is used for reproducible installs.
 - `mypy` passes across `cli`, `core`, `clients`, `storage`, and `tui`; BeautifulSoup typing debt is scoped to `clients.scrapers`.
-- Added regression tests for every fix above (`tests/test_deep_analysis_fixes.py`).
+- `CacheDatabase` startup maintenance (expiry delete + possible VACUUM) now runs at most once per database path per process instead of on every construction.
+- Added regression tests for every fix above (`tests/test_deep_analysis_fixes.py`, `tests/test_followup_wiring.py`).
 
 ## [0.2.1] - 2026-09-28
 

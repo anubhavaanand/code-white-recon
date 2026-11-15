@@ -169,6 +169,25 @@ def export_records(records: List[PatentRecord], format: str, output_path: str):
         print(f"ERR: Export to {format} failed. Reason: {e}")
         raise
 
+    _log_export(format, output_path, len(records))
+
+
+def _log_export(format: str, output_path: str, record_count: int) -> None:
+    """Append an audit entry to export_log (best-effort)."""
+    try:
+        from storage.cache import CacheDatabase
+
+        size = Path(output_path).stat().st_size if Path(output_path).exists() else None
+        CacheDatabase().log_export(
+            export_format=format,
+            file_path=output_path,
+            record_count=record_count,
+            file_size_bytes=size,
+        )
+    except Exception:
+        # Auditing must never break a successful export.
+        pass
+
 def export_pdf(collection: List[PatentRecord], path: str) -> None:
     """
     Export patent collection to PDF file.
