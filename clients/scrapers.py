@@ -40,7 +40,7 @@ def is_clean_url(url: str, target_domain: str) -> bool:
         return False
     try:
         parsed = urlparse(url)
-        return parsed.netloc and target_domain in parsed.netloc
+        return bool(parsed.netloc) and target_domain in parsed.netloc
     except Exception:
         return False
 

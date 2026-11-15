@@ -57,12 +57,20 @@ class USPTOClient(BaseAsyncClient):
 
             records = []
             for doc in docs:
+                # abstractText may arrive as a list of fragments or a single
+                # string. Joining a bare string would insert a space between
+                # every character ("H e l l o"), so normalize the shape first.
+                raw_abstract = doc.get("abstractText", "[?]")
+                if isinstance(raw_abstract, list):
+                    abstract = " ".join(str(part) for part in raw_abstract)
+                else:
+                    abstract = str(raw_abstract)
                 records.append(PatentRecord(
                     id=doc.get("patentNumber") or doc.get("applicationNumberText") or "UNKNOWN",
                     title=doc.get("inventionTitle", "[?]"),
                     assignee=doc.get("applicantName", "[?]"),
                     dates={"filed": doc.get("filingDate", "[?]")},
-                    abstract=" ".join(doc.get("abstractText", ["[?]"])),
+                    abstract=abstract,
                     claims=[],  # Detailed data on demand
                     image_urls=[],
                     status=doc.get("applicationStatusCategory", "UNKNOWN"),

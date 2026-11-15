@@ -372,6 +372,19 @@ class DetailScreen(Screen):
             tree.add_class("hidden")
         self.query_one("#detail_status", Static).update(self._status_line())
 
+    # DetailScreen has its own inline overlays (citation tree), so it needs the
+    # same reveal/conceal helpers SearchScreen uses. Without these, pressing
+    # `c` in the detail view raised AttributeError inside watch__show_citations.
+    def _reveal_overlay(self, widget: Static) -> None:
+        """Un-hide an overlay widget."""
+        widget.remove_class("hidden")
+        widget.styles.display = "block"
+
+    def _conceal_overlay(self, widget: Static) -> None:
+        """Hide an overlay widget."""
+        widget.add_class("hidden")
+        widget.styles.display = "none"
+
     def _build_content(self) -> str:
         if not self.record:
             return "No patent selected."
@@ -629,6 +642,9 @@ class SearchScreen(Screen):
         self._show_assignee_view = False
         self._assignee_portfolios: dict[str, list] = {}
         self._input_error = False
+        # Active boolean query (parsed) driving the footer BOOL: indicator.
+        # Initialized here so _build_footer_line() never raises AttributeError.
+        self._active_query = None
         self._show_sort = False
         self._sort_selected = 0
         self._sort_mode = "relevance"
@@ -927,6 +943,11 @@ class SearchScreen(Screen):
             search_input.remove_class("input-error")
             self._input_error = False
 
+        # Record the parsed query so the footer can show the active BOOL mode.
+        from core.query import parse_boolean_query
+        self._active_query = parse_boolean_query(query)
+        self._refresh_footer()
+
         self._start_search_spinner(query)
         sources = list(self._active_sources) if self._active_sources and len(self._active_sources) < len(ALL_SOURCES) else None
 
@@ -1025,7 +1046,7 @@ class SearchScreen(Screen):
             None,
         )
         if target:
-            target.is_enriching = True
+            target.is_enriching = True  # type: ignore[attr-defined]
         try:
             # Complete dates (expires, family_count) from the GP detail page —
             # one lazy fetch when the cheap search path left them unknown.
@@ -1061,7 +1082,7 @@ class SearchScreen(Screen):
             self.notify(f"ERR: Enrichment failed: {e}", severity="error")
         finally:
             if target:
-                target.is_enriching = False
+                target.is_enriching = False  # type: ignore[attr-defined]
 
     async def _lazy_load_claims(self, record) -> None:
         await self.query_one(ClaimsTab).load_claims(record)
@@ -1626,6 +1647,8 @@ class SearchScreen(Screen):
         self.query_one("#search_input", Input).value = ""
         self.query_one("#search_input", Input).focus()
         self._results = []
+        self._active_query = None
+        self._refresh_footer()
         self.query_one(ResultList).clear()
         self.query_one("#status_top", Static).update("RECON  ─────────────────────────────────────────")
         self.notify("Search cleared.")

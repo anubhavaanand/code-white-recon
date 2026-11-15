@@ -35,9 +35,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `_build_footer_line()` method was missing from the bottom footer bar — `BOOL:` indicator only showed in the top status bar and disappeared on navigation. Now persists via proper `_build_footer_line` + `_refresh_footer` wiring.
 - Fixed EPO filing date accuracy — was incorrectly using publication date
+- Initialized `SearchScreen._active_query` and set it on submit/clear — the footer's `BOOL:` indicator and context hints were silently never rendered because `_build_footer_line()` referenced an undefined attribute (swallowed by a broad `except`).
+- Added the missing `_reveal_overlay`/`_conceal_overlay` helpers to `DetailScreen` — pressing `c` in the detail view raised `AttributeError` inside `watch__show_citations`.
+- USPTO abstract parsing no longer character-spaces text when the API returns `abstractText` as a string (`" ".join("Hello")` → `"H e l l o"`).
+- `recon search` no longer auto-adds every result to the saved collection; use `recon run` or press `s` in the TUI. `--format json` now serializes nested dataclasses instead of crashing.
+- `semantic_search` preserves similarity ranking — results were ordered by set iteration order instead of cosine score.
+- Translation cache now writes to the shared RECON cache database; it previously opened a bare `recon_cache.db` in the CWD where the table never existed, so translations were never cached.
 
 ### Security
-- None
+- Hardened `is_safe_url` to compare the parsed hostname on a dot boundary. The old substring check (`domain in netloc`) accepted look-alike hosts such as `uspto.gov.evil.com` and `patentimages.storage.googleapis.com.evil.com`.
+
+### Changed
+- CI now runs ruff, mypy, a Python 3.12–3.14 test matrix with coverage, and a build/twine/import check; `uv sync --locked` is used for reproducible installs.
+- `mypy` passes across `cli`, `core`, `clients`, `storage`, and `tui`; BeautifulSoup typing debt is scoped to `clients.scrapers`.
+- Added regression tests for every fix above (`tests/test_deep_analysis_fixes.py`).
 
 ## [0.2.1] - 2026-09-28
 

@@ -8,13 +8,14 @@ ERR: and returns the original text.
 from __future__ import annotations
 
 import hashlib
-import sqlite3
 
 import httpx
 
-_CACHE_DB = "recon_cache.db"
 
-
+# Translations live in the shared RECON cache database (see storage.cache).
+# Previously this module opened a bare ``recon_cache.db`` in the current working
+# directory, where the ``translation_cache`` table never existed, so every cache
+# lookup silently failed and translations were never persisted.
 def _is_non_english(text: str) -> bool:
     """Heuristic: return True if text contains significant non-ASCII content."""
     if not text or text in ("[?]", "UNKNOWN"):
@@ -35,29 +36,19 @@ def _cache_key(text: str) -> str:
 
 def _get_cached_translation(text: str) -> str | None:
     """Return cached translation if available, else None."""
-    key = _cache_key(text)
+    from storage.cache import CacheDatabase
+
     try:
-        with sqlite3.connect(_CACHE_DB) as conn:
-            row = conn.execute(
-                "SELECT translated_text FROM translation_cache WHERE source_hash = ?",
-                (key,),
-            ).fetchone()
-            if row:
-                return row[0]
+        return CacheDatabase().get_cached_translation(text)
     except Exception:
-        pass
-    return None
+        return None
 
 
 def _save_translation_cache(text: str, translated: str) -> None:
-    key = _cache_key(text)
+    from storage.cache import CacheDatabase
+
     try:
-        with sqlite3.connect(_CACHE_DB) as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO translation_cache (source_hash, source_text, translated_text) VALUES (?, ?, ?)",
-                (key, text[:500], translated),
-            )
-            conn.commit()
+        CacheDatabase().save_translation_cache(text, translated)
     except Exception:
         pass
 
