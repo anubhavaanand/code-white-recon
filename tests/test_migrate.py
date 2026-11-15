@@ -1,9 +1,12 @@
 import sqlite3
+from pathlib import Path
+
+import pytest
 
 import storage.migrate as migrations
 
 
-def test_current_version_uses_numeric_components():
+def test_current_version_uses_numeric_components() -> None:
     with sqlite3.connect(":memory:") as conn:
         conn.execute("CREATE TABLE schema_version (version TEXT PRIMARY KEY)")
         conn.executemany(
@@ -12,7 +15,7 @@ def test_current_version_uses_numeric_components():
         assert migrations.get_current_version(conn) == "0.10.0"
 
 
-def test_migrate_applies_versions_in_numeric_order(tmp_path, monkeypatch):
+def test_migrate_applies_versions_in_numeric_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for version in ("0.2.0", "0.10.0"):
         (tmp_path / f"{version}.sql").write_text(
             "CREATE TABLE IF NOT EXISTS applied (version TEXT);"
@@ -31,7 +34,7 @@ def test_migrate_applies_versions_in_numeric_order(tmp_path, monkeypatch):
     assert migrations.migrate(db_path) == []
 
 
-def test_migration_target_is_compared_numerically(tmp_path, monkeypatch):
+def test_migration_target_is_compared_numerically(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for version in ("0.2.0", "0.10.0"):
         (tmp_path / f"{version}.sql").write_text("SELECT 1;")
     monkeypatch.setattr(migrations, "MIGRATIONS_DIR", tmp_path)
