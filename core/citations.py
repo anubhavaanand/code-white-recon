@@ -8,8 +8,9 @@ DuckDuckGo discovery, with mock fallback.
 from __future__ import annotations
 
 import asyncio
+import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import List
 
 import httpx
@@ -52,16 +53,63 @@ async def fetch_citations(patent_id: str, assignee: str = "") -> CitationGraph:
     Scrapes backward citations from the Google Patents page, and attempts
     forward citation discovery. Constitution II/VII: when scraping finds
     nothing we return an EMPTY graph — never fabricated nodes.
+
+    Non-empty graphs are cached in the shared SQLite cache so repeat views are
+    instant and do not re-hit Google Patents. Empty graphs are never cached so
+    a later scrape can still succeed.
     """
+    cached = _load_cached_graph(patent_id, assignee)
+    if cached is not None:
+        return cached
+
     backward = await _fetch_backward_citations(patent_id)
     forward = await _fetch_forward_citations(patent_id)
 
-    return CitationGraph(
+    graph = CitationGraph(
         patent_id=patent_id,
         assignee=assignee,
         backward=backward,
         forward=forward,
     )
+    if backward or forward:
+        _save_graph(graph)
+    return graph
+
+
+def _load_cached_graph(patent_id: str, assignee: str) -> CitationGraph | None:
+    try:
+        from storage.cache import CacheDatabase
+
+        row = CacheDatabase().get_citations(patent_id)
+        if not row:
+            return None
+        backward = [CitationNode(**d) for d in json.loads(row.get("cites") or "[]")]
+        forward = [CitationNode(**d) for d in json.loads(row.get("cited_by") or "[]")]
+        if not backward and not forward:
+            return None
+        return CitationGraph(
+            patent_id=row.get("patent_id", patent_id),
+            assignee=assignee,
+            backward=backward,
+            forward=forward,
+        )
+    except Exception:
+        return None
+
+
+def _save_graph(graph: CitationGraph) -> None:
+    try:
+        from storage.cache import CacheDatabase
+
+        CacheDatabase().save_citations(
+            graph.patent_id,
+            cited_by=[asdict(n) for n in graph.forward],
+            cites=[asdict(n) for n in graph.backward],
+            family_members=[],
+            data_source="google_patents",
+        )
+    except Exception:
+        pass
 
 
 async def _fetch_backward_citations(patent_id: str) -> List[CitationNode]:

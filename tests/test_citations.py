@@ -144,6 +144,9 @@ async def test_fetch_citations_empty_when_scrape_empty(monkeypatch):
 
     monkeypatch.setattr("core.citations._fetch_backward_citations", mock_backward)
     monkeypatch.setattr("core.citations._fetch_forward_citations", mock_forward)
+    # Isolate from any cached graph written by other tests.
+    monkeypatch.setattr("core.citations._load_cached_graph", lambda *a, **k: None)
+    monkeypatch.setattr("core.citations._save_graph", lambda *a, **k: None)
 
     graph = await fetch_citations("US123", "Test Corp")
     assert graph.backward == []

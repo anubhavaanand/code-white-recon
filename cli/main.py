@@ -164,7 +164,15 @@ def search(
     db = CacheDatabase()
     cache_query = query if file is None else file
     assert cache_query is not None
+    cache_hit = db.is_cache_valid(cache_query)
     db.save_search_results(cache_query, results)
+    db.add_search_history(
+        cache_query,
+        result_count=len(results),
+        sources=source.split(",") if source else None,
+        cache_hit=cache_hit,
+        tui_mode=False,
+    )
     # `search` only caches; use `recon run` (or press `s` in the TUI) to add
     # records to the saved collection. Auto-saving every search result polluted
     # the collection and any subsequent export.
@@ -213,7 +221,15 @@ def run(
 
         # Cache and add to collection
         db = CacheDatabase()
+        cache_hit = db.is_cache_valid(query)
         db.save_search_results(query, results)
+        db.add_search_history(
+            query,
+            result_count=len(results),
+            sources=source.split(",") if source else None,
+            cache_hit=cache_hit,
+            tui_mode=False,
+        )
         for rec in results:
             db.save_to_collection(rec)
 

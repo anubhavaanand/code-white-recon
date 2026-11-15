@@ -2,7 +2,9 @@ import contextlib
 import dataclasses
 import hashlib
 import json
+import os
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -225,12 +227,32 @@ def _normalize_patent_id(patent_id: str) -> str:
 
 
 class CacheDatabase:
+    # Startup maintenance (expiry delete + possible VACUUM) is expensive and
+    # used to run on every CacheDatabase() construction. The CLI/TUI build many
+    # short-lived instances, so run it at most once per database path per
+    # process. A fresh process (each CLI invocation) still gets a clean-up pass.
+    _maintenance_lock = threading.Lock()
+    _maintenance_done: set[str] = set()
+
     def __init__(self, db_path: str | None = None):
         if db_path is None:
             db_path = str(Path.home() / ".cache" / "recon" / "cache.db")
         self.db_path = str(db_path)
         self._init_db()
-        self.enforce_eviction_policy()
+        self._run_startup_maintenance()
+
+    def _run_startup_maintenance(self) -> None:
+        path = os.path.abspath(self.db_path)
+        cls = type(self)
+        with cls._maintenance_lock:
+            if path in cls._maintenance_done:
+                return
+            cls._maintenance_done.add(path)
+        try:
+            self.enforce_eviction_policy()
+        except Exception:
+            # Maintenance is best-effort; never block construction on it.
+            pass
 
     def _init_db(self) -> None:
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -321,6 +343,13 @@ class CacheDatabase:
         data = json.dumps(dataclasses.asdict(record_copy))
         with contextlib.closing(self.get_connection()) as conn:
             with conn:
+                # One row per (patent_id, collection_name): re-saving a patent
+                # refreshes it instead of creating duplicates that would show up
+                # twice in the collection and in exports.
+                conn.execute(
+                    "DELETE FROM collections WHERE patent_id = ? AND collection_name = ?",
+                    (norm_id, collection_name),
+                )
                 conn.execute(
                     """INSERT INTO collections
                        (patent_id, patent_json, source_api, collection_name, notes, tags, score_at_save)
@@ -386,9 +415,9 @@ class CacheDatabase:
     def save_citations(
         self,
         patent_id: str,
-        cited_by: Optional[list[str]] = None,
-        cites: Optional[list[str]] = None,
-        family_members: Optional[list[str]] = None,
+        cited_by: Optional[list] = None,
+        cites: Optional[list] = None,
+        family_members: Optional[list] = None,
         family_id: Optional[str] = None,
         data_source: str = "web",
     ) -> None:

@@ -230,8 +230,14 @@ def test_search_command_does_not_populate_collection(monkeypatch):
     saved_to_collection: list = []
 
     class _FakeDB:
+        def is_cache_valid(self, query):
+            return False
+
         def save_search_results(self, query, results, sources=None):
             pass
+
+        def add_search_history(self, query, **kw):
+            return 1
 
         def save_to_collection(self, record, *a, **kw):
             saved_to_collection.append(record)
