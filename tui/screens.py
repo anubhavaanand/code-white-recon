@@ -550,7 +550,8 @@ _HELP_TEXT = """\
 │  r         Reader mode                     │
 │  c         Citation graph                  │
 │  t         Translate                       │
-│  p         Toggle three-pane               │
+│  p         Previous figure                 │
+│  n         Next figure                     │
 │  m         Synthesis mode                  │
 │  a         Assignee portfolio view         │
 │                                            │

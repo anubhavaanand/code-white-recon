@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Example entry:**
 ```
 ### Fixed
+- Corrected the help overlay's figure-navigation shortcuts: `p` is previous figure and `n` is next figure.
 - Replaced fragile `get_item_at()` with `highlighted_child` for ListView access
 ```
 
