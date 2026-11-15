@@ -234,12 +234,13 @@ class CacheDatabase:
     _maintenance_lock = threading.Lock()
     _maintenance_done: set[str] = set()
 
-    def __init__(self, db_path: str | None = None):
+    def __init__(self, db_path: str | None = None, *, run_maintenance: bool = True):
         if db_path is None:
             db_path = str(Path.home() / ".cache" / "recon" / "cache.db")
         self.db_path = str(db_path)
         self._init_db()
-        self._run_startup_maintenance()
+        if run_maintenance:
+            self._run_startup_maintenance()
 
     def _run_startup_maintenance(self) -> None:
         path = os.path.abspath(self.db_path)
@@ -694,6 +695,37 @@ class CacheDatabase:
             return {r["patent_id"]: json.loads(r["embedding_json"]) for r in rows}
 
     # ── eviction ─────────────────────────────────────────────────────────────
+
+    def preview_eviction_policy(self, max_db_mb: int = 1000) -> dict:
+        """Report what enforce_eviction_policy() would remove, without deleting anything."""
+        stats = {"deleted_expired": 0, "deleted_lru": 0, "deleted_history": 0, "db_size_mb": 0.0, "vacuum_freed_mb": 0.0}
+
+        with contextlib.closing(self.get_connection()) as conn:
+            stats["deleted_expired"] = conn.execute(
+                "SELECT COUNT(*) FROM search_results WHERE expires_at < CURRENT_TIMESTAMP"
+            ).fetchone()[0]
+
+            stats["deleted_history"] = conn.execute(
+                "SELECT COUNT(*) FROM search_history WHERE searched_at < datetime('now', '-1 year')"
+            ).fetchone()[0]
+
+        db_size = Path(self.db_path).stat().st_size / (1024 * 1024)
+        stats["db_size_mb"] = round(db_size, 2)
+
+        if db_size > max_db_mb:
+            excess_mb = db_size - max_db_mb
+            target_patents = int((excess_mb / db_size) * 10_000) + 100
+            with contextlib.closing(self.get_connection()) as conn:
+                stats["deleted_lru"] = conn.execute(
+                    """SELECT COUNT(*) FROM (
+                        SELECT query_hash FROM search_results
+                        ORDER BY hit_count ASC, last_accessed ASC
+                        LIMIT ?
+                    )""",
+                    (target_patents,),
+                ).fetchone()[0]
+
+        return stats
 
     def enforce_eviction_policy(self, max_db_mb: int = 1000) -> dict:
         stats = {"deleted_expired": 0, "deleted_lru": 0, "deleted_history": 0, "db_size_mb": 0.0, "vacuum_freed_mb": 0.0}
