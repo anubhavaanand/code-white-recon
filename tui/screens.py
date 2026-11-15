@@ -1,3 +1,5 @@
+import re
+
 from rich.markup import escape
 from textual import work
 from textual.app import ComposeResult
@@ -1404,9 +1406,9 @@ class SearchScreen(Screen):
         for i, record in enumerate(self._results, 1):
             result_list.mount(ResultListItem(record, i))
 
-        self.query_one("#status_top", Static).update(
-            str(self.query_one("#status_top", Static).content).replace(f"sort: {self._sort_mode}", "") + f"sort: {self._sort_mode}"
-        )
+        status = self.query_one("#status_top", Static)
+        text = re.sub(r"(?:\s*│)?\s*sort: [^│]*$", "", str(status.content)).rstrip()
+        status.update(f"{text}  │  sort: {self._sort_mode}")
         if self._results:
             result_list.index = 0
             self._load_record(self._results[0])

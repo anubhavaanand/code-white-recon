@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Example entry:**
 ```
 ### Fixed
+- Replaced the previous sort label when changing search-result ordering instead of accumulating labels.
 - Replaced fragile `get_item_at()` with `highlighted_child` for ListView access
 ```
 
