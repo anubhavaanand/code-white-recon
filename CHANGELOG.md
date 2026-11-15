@@ -25,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **Example entry:**
 ```
 ### Fixed
-- Replaced the previous sort label when changing search-result ordering instead of accumulating labels.
 - Replaced fragile `get_item_at()` with `highlighted_child` for ListView access
 ```
 
@@ -34,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Replaced the previous sort label when changing search-result ordering instead of accumulating labels.
 - Compared and applied schema migration versions numerically, including multi-digit version components.
 - `_build_footer_line()` method was missing from the bottom footer bar — `BOOL:` indicator only showed in the top status bar and disappeared on navigation. Now persists via proper `_build_footer_line` + `_refresh_footer` wiring.
 - Fixed EPO filing date accuracy — was incorrectly using publication date
