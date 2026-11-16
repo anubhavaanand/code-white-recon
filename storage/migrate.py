@@ -9,12 +9,14 @@ MIGRATIONS = [
 ]
 
 
+def _version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
 def get_current_version(conn: sqlite3.Connection) -> str:
     try:
-        row = conn.execute(
-            "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
-        ).fetchone()
-        return row[0] if row else "0.0.0"
+        rows = conn.execute("SELECT version FROM schema_version").fetchall()
+        return max((row[0] for row in rows), key=_version_key, default="0.0.0")
     except Exception:
         return "0.0.0"
 
@@ -47,9 +49,9 @@ def migrate(db_path: str, target_version: str | None = None) -> list[str]:
 
     applied: list[str] = []
 
-    for version, filename in MIGRATIONS:
-        if version > current:
-            if target_version and version > target_version:
+    for version, filename in sorted(MIGRATIONS, key=lambda migration: _version_key(migration[0])):
+        if _version_key(version) > _version_key(current):
+            if target_version and _version_key(version) > _version_key(target_version):
                 break
 
             # Special check for v0.2.0: if api_metadata already exists,

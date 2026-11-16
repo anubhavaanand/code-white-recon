@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Compared and applied schema migration versions numerically, including multi-digit version components.
 - `_build_footer_line()` method was missing from the bottom footer bar — `BOOL:` indicator only showed in the top status bar and disappeared on navigation. Now persists via proper `_build_footer_line` + `_refresh_footer` wiring.
 - Fixed EPO filing date accuracy — was incorrectly using publication date
 - Initialized `SearchScreen._active_query` and set it on submit/clear — the footer's `BOOL:` indicator and context hints were silently never rendered because `_build_footer_line()` referenced an undefined attribute (swallowed by a broad `except`).
