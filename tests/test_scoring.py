@@ -86,9 +86,20 @@ def test_no_hidden_weights():
         assert s == 20, f"Supply source '{source}' not weighted +20"
 
 
+def test_enrichment_sources_are_covered_by_scoring_categories():
+    from core.enrichment import _SIGNAL_DOMAINS
+    from core.scoring import _ACADEMIC_SOURCES, _CORP_SOURCES, _GRANT_SOURCES, _SUPPLY_SOURCES
+
+    scoring_sources = _GRANT_SOURCES | _CORP_SOURCES | _ACADEMIC_SOURCES | _SUPPLY_SOURCES
+    temporal_only_sources = {"crossref"}
+    produced_sources = set(_SIGNAL_DOMAINS) - temporal_only_sources
+
+    assert produced_sources <= scoring_sources
+
+
 def test_weigh_documentation():
     signals = {
-        "grant": {"sources": ["NIH", "NSF", "DOE", "NIH REPORTER", "NSF AWARDS"], "weight": 20},
+        "grant": {"sources": ["NIH", "NSF", "DOE"], "weight": 20},
         "corporate": {"sources": ["SEC", "EDGAR", "10-K", "8-K"], "weight": 20},
         "academic": {"sources": ["OpenAlex", "arXiv"], "weight": 20},
         "supply_chain": {"sources": ["OpenCorporates", "Supply Chain", "DUNS"], "weight": 20},
