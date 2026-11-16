@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Kept `admin cache-stats` read-only by adding `preview_eviction_policy()` and disabling maintenance during the report, so the dry-run no longer deletes expired rows.
 - Corrected the help overlay's figure-navigation shortcuts: `p` is previous figure and `n` is next figure.
 - Replaced the previous sort label when changing search-result ordering instead of accumulating labels.
 - Compared and applied schema migration versions numerically, including multi-digit version components.
