@@ -1,6 +1,5 @@
 import time
 from enum import Enum
-from typing import Callable
 
 
 class CircuitState(Enum):
@@ -50,21 +49,6 @@ class CircuitBreaker:
                 f"Circuit '{self.name}' is OPEN "
                 f"({self._failure_count} consecutive failures)"
             )
-
-    def wrap(self, fn: Callable) -> Callable:
-        async def wrapped(*args, **kwargs):
-            self.check()
-            try:
-                result = await fn(*args, **kwargs)
-                self.record_success()
-                return result
-            except CircuitOpenError:
-                raise
-            except Exception:
-                self.record_failure()
-                raise
-
-        return wrapped
 
     def __repr__(self) -> str:
         return (
