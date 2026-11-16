@@ -526,7 +526,6 @@ class DetailScreen(Screen):
             self.app.notify("No patent selected.")
             return
         self._show_translation = not self._show_translation
-        self.app.notify("Translation complete.")
 
 
 # ══════════════════════════════════════════════
