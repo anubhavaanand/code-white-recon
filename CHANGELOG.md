@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Corrected the help overlay's figure-navigation shortcuts: `p` is previous figure and `n` is next figure.
 - Replaced the previous sort label when changing search-result ordering instead of accumulating labels.
 - Compared and applied schema migration versions numerically, including multi-digit version components.
 - `_build_footer_line()` method was missing from the bottom footer bar — `BOOL:` indicator only showed in the top status bar and disappeared on navigation. Now persists via proper `_build_footer_line` + `_refresh_footer` wiring.
