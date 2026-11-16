@@ -1,42 +1,7 @@
 import asyncio
-import time
 from typing import Any, Dict, Optional
 
 import httpx
-
-
-class TokenBucket:
-    """Proactive rate limiter with 24% headroom.
-
-    Maintains exactly 76% of documented rate limit to stay under
-    provider thresholds.
-    """
-
-    def __init__(self, rate_per_minute: int):
-        self.max_tokens = int(rate_per_minute * 0.76)
-        self.tokens = float(self.max_tokens)
-        self.period = 60.0
-        self.last_refill = time.monotonic()
-        self.lock = asyncio.Lock()
-
-    async def acquire(self) -> float:
-        """Wait for a token and return the current utilization ratio (0.0-1.0)."""
-        async with self.lock:
-            now = time.monotonic()
-            elapsed = now - self.last_refill
-            self.tokens = min(
-                self.max_tokens,
-                self.tokens + elapsed * (self.max_tokens / self.period),
-            )
-            self.last_refill = now
-
-            if self.tokens < 1:
-                wait = (1 - self.tokens) * (self.period / self.max_tokens)
-                await asyncio.sleep(wait)
-                self.tokens = 0.0
-
-            self.tokens -= 1.0
-            return 1.0 - (self.tokens / self.max_tokens) if self.max_tokens > 0 else 0.0
 
 
 class BaseAsyncClient:
