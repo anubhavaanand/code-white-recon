@@ -11,7 +11,7 @@ Each test maps to a verified, reproducible defect (not a false alarm):
 * ``semantic_search`` lost similarity ranking by iterating a set.
 """
 
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 import pytest
 
@@ -52,6 +52,23 @@ def test_detail_screen_has_overlay_helpers():
     assert "hidden" not in widget.classes
     screen._conceal_overlay(widget)
     assert "hidden" in widget.classes
+
+
+@pytest.mark.asyncio
+async def test_detail_screen_translate_does_not_report_completion_before_translation():
+    from tui.screens import DetailScreen
+
+    notifications = []
+    screen = DetailScreen(_record())
+    fake_app = type("App", (), {"notify": notifications.append})()
+
+    with (
+        patch.object(DetailScreen, "app", new_callable=PropertyMock, return_value=fake_app),
+        patch.object(DetailScreen, "watch__show_translation"),
+    ):
+        await screen.action_translate()
+
+    assert notifications == []
 
 
 # ── 2. SearchScreen footer / _active_query ─────────────────────────────────
