@@ -428,7 +428,7 @@ def admin_stats():
 @admin_app.command("cache-stats")
 def admin_cache_stats():
     """Show detailed cache statistics: hit counts, size, eviction metrics."""
-    db = CacheDatabase()
+    db = CacheDatabase(run_maintenance=False)
     with contextlib.closing(db.get_connection()) as conn:
         total = conn.execute("SELECT COUNT(*) FROM search_results").fetchone()[0]
         expired = conn.execute("SELECT COUNT(*) FROM search_results WHERE expires_at < CURRENT_TIMESTAMP").fetchone()[0]
@@ -450,10 +450,10 @@ def admin_cache_stats():
         for row in top:
             console.print(f"  {row['query_text'][:60]:60s}  hits={row['hit_count']}  last={row['last_accessed'] or 'never'}")
 
-    eviction = db.enforce_eviction_policy()
-    console.print("\n[bold]Eviction (dry run):[/bold]")
-    console.print(f"  Expired deleted:   {eviction['deleted_expired']}")
-    console.print(f"  LRU deleted:       {eviction['deleted_lru']}")
+    eviction = db.preview_eviction_policy()
+    console.print("\n[bold]Eviction preview (nothing is deleted):[/bold]")
+    console.print(f"  Expired entries:   {eviction['deleted_expired']}")
+    console.print(f"  LRU entries:       {eviction['deleted_lru']}")
     console.print(f"  Old history:       {eviction['deleted_history']}")
 
 
